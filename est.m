@@ -13,7 +13,7 @@ validate_inputs(data, params);
 
 %% Unpack data and parameters
 Fs = data.Fs; % Original data sampling rate [samples per second]
-R = data.R; % Symbol rate [Baud]
+R = data.R; % Symbol rate [symbols per second]
 fc = data.fc; % Center frequency [Hz]
 d = data.d; % Data symbols, num_symbols x 1
 r = data.r; % Received data symbols, num_channels x num_samples
