@@ -2,7 +2,7 @@
 
 [![Generic badge](https://img.shields.io/badge/MATLAB-R2021a-BLUE.svg)](https://shields.io/) with [Signal Processing Toolbox™](https://www.mathworks.com/products/signal.html) or [![Generic badge](https://img.shields.io/badge/Octave-9.0-BLUE.svg)](https://shields.io) with the [signal](https://gnu-octave.github.io/packages/signal/) and [statistics](https://gnu-octave.github.io/packages/statistics/) packages.
 
-This MATLAB®/Octave toolbox estimates an underwater acoustic channel using single-carrier signals.
+This MATLAB®/Octave toolbox estimates an underwater acoustic channel using single-carrier signals. Note that this repository is still in **beta**.
 
 Please report bugs and suggest enhancements by [creating a new issue](https://github.com/uwa-channels/estimate/issues). We welcome your feedback.
 
