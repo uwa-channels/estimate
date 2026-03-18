@@ -36,6 +36,7 @@ The estimator produces two structs that are saved alongside the channel data:
 | `description` | Free-text description of the experiment |
 | `nsd` | Samples per symbol in the delay domain |
 | `nst` | Samples per symbol in the time domain |
+| `Fs`  | Sample rate of the received signal |
 | `K_1`, `K_2` | Anti-causal and causal filter lengths [symbols] |
 | `fc` | Center frequency [Hz] |
 | `element_spacing` | Array element spacing [m] |

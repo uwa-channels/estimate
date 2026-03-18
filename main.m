@@ -115,6 +115,7 @@ meta.description = sprintf('Synthetic; M=%d; v/c=%.4f; Tmp=%.0fms; fc=%.0fkHz', 
   M, a, Tmp*1e3, fc/1e3);
 meta.nsd = param.nsd;
 meta.nst = param.nst;
+meta.Fs = param.Fs;
 meta.K_1 = param.K_1;
 meta.K_2 = param.K_2;
 meta.fc = param.fc;
