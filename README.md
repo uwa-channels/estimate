@@ -8,7 +8,7 @@ Please report bugs and suggest enhancements by [creating a new issue](https://gi
 
 ## Quick start
 
-Run `example_est.m` in MATLAB or Octave.  The script generates a BPSK signal, passes it through a synthetic multipath channel with Doppler, estimates the time-varying impulse response, and plots the results.
+Run `main.m` in MATLAB or Octave.  The script generates a BPSK signal, passes it through a synthetic multipath channel with Doppler, estimates the time-varying impulse response, and plots the results.
 
 ## Functions
 
