@@ -131,7 +131,7 @@ ax = subplot(231);
 imagesc(xaxis, yaxis, 20*log10(abs(h_hat_first_channel)).', [limit, 0]);
 xlabel(xunit), ylabel('Time [s]');
 c = colorbar(ax, "Location", "Northoutside");
-ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8;set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
+ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
 if delay_tracking
   text(ax, 0.55, 1.09, 0.0, "$\underline{\hat{\mathbf{h}}}[n]$", "Interpreter", "latex", "Units", "Normalized")
 else
@@ -172,7 +172,11 @@ xlabel(xunit); ylabel('Doppler [Hz]');
 ylim([-10, 10])
 c = colorbar(ax, "Location", "Northoutside");
 ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
-text(ax, 0.55, 1.09, 0.0, "$\left|\hat{S}_{\hat{\underline{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+if delay_tracking
+  text(ax, 0.55, 1.09, 0.0, "$\left|\hat{S}_{\hat{\underline{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+else
+  text(ax, 0.55, 1.09, 0.0, "$\left|\hat{S}_{\hat{{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+end
 
 if subplots
   figs.doppler = figure('position', [0, 0, 400, 400]); ax = gca;
@@ -181,9 +185,13 @@ if subplots
   ylim([-2, 2])
   c = colorbar(ax, "Location", "Northoutside");
   ps = get(ax, "Position"); ps(4)=ps(4)*0.9; set(ax, "Position", ps);
-  pc = get(c, "Position"); pc(2)=pc(2)*1.0; pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; set(c, "Position", pc);
+  pc = get(c, "Position"); pc(2)=pc(2)*1.03; pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; set(c, "Position", pc);
   title(c, "dB"); lb_sub = get(c, "Title"); set(lb_sub, "Units", "Normalized", "Position", [1.15, 0]);
-  text(ax, 0.65, 1.09, 0.0, "$\left|\hat{S}_{\hat{\underline{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+  if delay_tracking
+    text(ax, 0.55, 1.09, 0.0, "$\left|\hat{S}_{\hat{\underline{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+  else
+    text(ax, 0.55, 1.09, 0.0, "$\left|\hat{S}_{\hat{{h}}}(\tau, \nu)\right|$", "Interpreter", "latex", "Units", "Normalized")
+  end
   colormap(cmap);
 end
 
@@ -228,8 +236,8 @@ if meta.vertical && M >= 13
   imagesc(delays * 1e3, theta/pi*180, zaxis.', [limit, 0]), colormap(cmap), axis("xy")
   xlabel(xunit); ylabel("Angle [degree]")
   c = colorbar(ax, "Location", "Northoutside");
-  ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8;set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
-  text(ax, 0.55, 1.09, 0.0, "$10 \log_{10} \left( \hat{P}(\tau, \theta) \right)$", "Interpreter", "latex", "Units", "Normalized")
+  ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
+  % text(ax, 0.55, 1.09, 0.0, "$10 \log_{10} \left( \hat{P}(\tau, \theta) \right)$", "Interpreter", "latex", "Units", "Normalized")
 
   if subplots
     figs.delay_angle = figure('position', [0, 0, 400, 400]); ax = gca;
@@ -239,7 +247,7 @@ if meta.vertical && M >= 13
     ps = get(ax, "Position"); ps(4)=ps(4)*0.9; set(ax, "Position", ps);
     pc = get(c, "Position"); pc(2)=pc(2)*1.03; pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; set(c, "Position", pc);
     title(c, "dB"); lb_sub = get(c, "Title"); set(lb_sub, "Units", "Normalized", "Position", [1.15, 0]);
-    text(ax, 0.65, 1.09, 0.0, "$10 \log_{10} \left( \hat{P}(\tau, \theta) \right)$", "Interpreter", "latex", "Units", "Normalized")
+    % text(ax, 0.65, 1.09, 0.0, "$10 \log_{10} \left( \hat{P}(\tau, \theta) \right)$", "Interpreter", "latex", "Units", "Normalized")
     colormap(cmap);
   end
 else
@@ -304,13 +312,13 @@ if R > 1000
   data_params = { ...
     '\textbf{Signal parameters}', ...
     sprintf('$F_s = %.2f$ ksa/s, $R = %.2f$ ksym/s, $f_c = %.2f$ kHz', ...
-      Fs/1e3, R/1e3, fc/1e3), ...
+    Fs/1e3, R/1e3, fc/1e3), ...
     sprintf('$M = %d$', M)};
 else
   data_params = { ...
     '\textbf{Signal parameters}', ...
     sprintf('$F_s = %.2f$ sa/s, $R = %.2f$ sym/s, $f_c = %.2f$ Hz', ...
-      Fs, R, fc), ...
+    Fs, R, fc), ...
     sprintf('$M = %d$', M)};
 end
 
@@ -334,7 +342,7 @@ est_params = { ...
   '\textbf{Estimation parameters}', ...
   time_str, ...
   sprintf('%s, $K_{f_1} = %s$, $K_{f_2} = %s$', ...
-    step_str, ltxnum(meta.Kf_1), ltxnum(meta.Kf_2))};
+  step_str, ltxnum(meta.Kf_1), ltxnum(meta.Kf_2))};
 
 text(ax, 0, 0.85, data_params, "Units", "normalized", ...
   "Interpreter", "latex", "VerticalAlignment", "top", "FontSize", 10)
