@@ -1,0 +1,40 @@
+name: CI
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    paths:
+      - 'src/*.m'
+      - 'tests/*.m'
+      - '.github/workflows/ci.yml'
+env:
+  MLM_LICENSE_TOKEN: ${{ secrets.MLM_LICENSE_TOKEN }}
+jobs:
+  test:
+    # testReplayRoundTrip needs replay.m, so the MATLAB toolbox is checked
+    # out next to this repository and put on the path with src.
+    strategy:
+      fail-fast: false
+      matrix:
+        release: [R2021a, latest]
+    name: Test-${{ matrix.release }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Check out uwa-channels/matlab
+        uses: actions/checkout@v4
+        with:
+          repository: uwa-channels/matlab
+          path: uwa-matlab
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.release }}
+          products: >
+            Signal_Processing_Toolbox
+      - name: Run tests
+        uses: matlab-actions/run-tests@v2
+        with:
+          source-folder: src; uwa-matlab/src
+          select-by-folder: tests

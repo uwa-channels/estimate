@@ -11,6 +11,7 @@ the scripts do and for the output format.
 - `examples/example_estimate.m` is the end-to-end example: it makes a
   synthetic channel, estimates it, saves it in the library format, and plots
   it.
+- `tests/testEst.m` holds the `matlab.unittest` tests.
 - `install.m` adds `src/` and `examples/` to the search path and saves it.
 
 ## Running it
@@ -20,10 +21,22 @@ matlab -batch "addpath('src', 'examples'); example_estimate"
 octave --eval "pkg load signal statistics; addpath('src', 'examples'); example_estimate"
 ```
 
-There is no test suite.  Run `example_estimate.m` after a change, and check that the
-estimated impulse response and PLL phase in the plots look right.  It needs the
-Signal Processing Toolbox in MATLAB (R2021a or later), or the `signal` and
-`statistics` packages in Octave 9.
+## Tests
+
+```bash
+matlab -batch "addpath('src', 'tests', '../matlab/src'); assertSuccess(runtests('tests'))"
+```
+
+`testReplayRoundTrip` needs `replay.m` from `uwa-channels/matlab`; the command
+above assumes a clone named `matlab` next to this one.  Without it, that test
+is skipped.  CI (`.github/workflows/ci.yml`) runs the suite on R2021a and on
+the latest release, so keep the code working on R2021a.  The tests do not run
+in Octave, which lacks `matlab.unittest`.
+
+The tests compare `h_hat` with the impulse response the simulated channel
+must produce.  If a change makes them fail, find out why before you change a
+threshold: each one sits a few dB from what correct code measures, and the
+header of `testEst.m` lists what each test checks.
 
 ## File format
 

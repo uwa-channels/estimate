@@ -23,6 +23,16 @@ example_estimate
 |--------|----------|
 | `src/` | The functions: `est.m` and `plots.m`. |
 | `examples/` | `example_estimate.m`, the end-to-end example. |
+| `tests/` | `testEst.m`, which estimates known channels and checks the results. |
+
+## Tests
+
+```matlab
+addpath('src', 'tests');
+results = runtests('tests')
+```
+
+The tests send a known BPSK sequence through a known multipath channel with LMS and RLS, with and without Doppler, and check that `h_hat` matches the impulse response that channel must produce.  They also check the PLL phase and delay drift, the output sizes, and the input checks.  One test replays the estimated channel with `replay` from [uwa-channels/matlab](https://github.com/uwa-channels/matlab), and it is skipped when `replay` is not on the path.  CI runs them on R2021a and on the latest MATLAB release.
 
 ## Functions
 
