@@ -13,10 +13,13 @@ function figs = plots(h_hat, phase, params, meta, subplots)
 %   mip          - Multipath intensity profile
 %   pll          - Phase-locked loop
 %
+% The impulse response and Doppler-delay plots show the middle receiver,
+% M/2 rounded down (receiver 1 when M = 1).
+%
 % Saving is left to the caller, e.g.:
 %   figs = plots(h_hat, theta_hat, params, meta, true);
-%   exportgraphics(figs.main, "for_paul/yellow_2.pdf");
-%   exportgraphics(figs.ir, "for_paul/yellow_2_ir.pdf");
+%   exportgraphics(figs.main, "channel.pdf");
+%   exportgraphics(figs.ir, "channel_ir.pdf");
 %
 % Inputs:
 %    h_hat          - Channel impulse response, size (K, M, T).
@@ -28,9 +31,19 @@ function figs = plots(h_hat, phase, params, meta, subplots)
 %                     and optionally nslr).
 %    subplots       - Logical, create standalone figures (default false).
 %
+% Outputs:
+%    figs           - Struct of figure handles (see above).
+%
 % Example:
-%    load('yellow_2.mat');
-%    figs = plots(h_hat, theta_hat, params, meta);
+%    load('synthetic_example.mat');
+%    figs = plots(h_hat, phi_hat, params, meta);
+%
+% Other m-files required: None.
+% Subfunctions: ltxnum
+% Toolbox required: Signal Processing Toolbox (for xcorr).
+% MAT-files required: None.
+%
+% See also: est.m, example_estimate.m
 %
 % License: MIT
 %
@@ -42,10 +55,12 @@ function figs = plots(h_hat, phase, params, meta, subplots)
 %   - Jul. 11, 2024: Add capabilities of resampling the time domain.
 %   - Mar. 09, 2026: Refactored to use params/meta struct. Returns
 %                     struct of figure handles.
+%   - Oct. 26, 2026: Fix the delay-angle beamformer frequency order, the
+%                     delay-angle axis unit, and the T_c label; set fonts
+%                     per figure instead of globally.
 
-%% Font settings
-set(groot, 'defaultAxesFontName', 'SansSerif');
-set(groot, 'defaultTextFontName', 'SansSerif');
+%% Font settings, applied to each figure rather than to the session
+fig_opts = {'DefaultAxesFontName', 'SansSerif', 'DefaultTextFontName', 'SansSerif'};
 
 %% Default arguments
 if nargin < 5, subplots = false; end
@@ -77,58 +92,41 @@ else
 end
 
 %% Colors and figure settings
-% colors = flipud([0.9059    0.3843    0.3294;
-%   0.9373    0.5412    0.2784;
-%   0.9686    0.6667    0.3451;
-%   1.0000    0.8157    0.4353;
-%   1.0000    0.9020    0.7176;
-%   0.6667    0.8627    0.8784;
-%   0.4471    0.7373    0.8353;
-%   0.3216    0.5608    0.6784;
-%   0.2157    0.4039    0.5843;
-%   0.1176    0.2745    0.4314]);
-colors = [1.0000    1.0000    1.0000;
-  0.9176    0.9490    0.9804;
-  0.7765    0.8588    0.9373;
-  0.6196    0.7647    0.8863;
-  0.4549    0.6627    0.8118;
-  0.2863    0.5451    0.7451;
-  0.1569    0.4431    0.6745;
-  0.0706    0.3451    0.5804;
-  0.0392    0.2627    0.4863;
-  0.0314    0.2039    0.4039;
-  0.0196    0.1490    0.3137;
-  0.0118    0.0941    0.2157;
-  0.0039    0.0392    0.1098];
+colors = flipud([0.9059    0.3843    0.3294;
+  0.9373    0.5412    0.2784;
+  0.9686    0.6667    0.3451;
+  1.0000    0.8157    0.4353;
+  1.0000    0.9020    0.7176;
+  0.6667    0.8627    0.8784;
+  0.4471    0.7373    0.8353;
+  0.3216    0.5608    0.6784;
+  0.2157    0.4039    0.5843;
+  0.1176    0.2745    0.4314]);
 cmap = interp1(colors, linspace(1, size(colors,1), 64));
 linecolors = interp1(colors, linspace(1, size(colors,1), M));
-figs.main = figure('position', [0, 0, 1200, 900]);
+figs.main = figure('position', [0, 0, 1200, 900], fig_opts{:});
 colormap(cmap);
 
 %% Some helper variables
 K = K_1 + K_2;
-if size(h_hat, 2) > 1
-  h_hat_first = squeeze(h_hat(:, floor(size(h_hat, 2)/2), :)).';
-else
-  h_hat_first = squeeze(h_hat(:, 1, :)).';
-end
-h_hat_first_channel = h_hat_first.';
-h_hat_first_channel = h_hat_first_channel ./ max(abs(h_hat_first_channel), [], "all");
+h_hat_mid = squeeze(h_hat(:, max(floor(M/2), 1), :));
+h_hat_mid = h_hat_mid ./ max(abs(h_hat_mid), [], "all");
 
 %% Axis variables
 if R > 1000
-  xaxis = (-K_1*ns:K_2*ns-1) / fs * 1e3;
+  delay_scale = 1e3;
   xunit = 'Delay [ms]';
 else
-  xaxis = (-K_1*ns:K_2*ns-1) / fs;
+  delay_scale = 1;
   xunit = 'Delay [s]';
 end
-yaxis = (1:size(h_hat_first_channel,2)) / params.fs_time;
+xaxis = (-K_1*ns:K_2*ns-1) / fs * delay_scale;
+yaxis = (1:size(h_hat_mid,2)) / params.fs_time;
 
 %% Subplot 1, time varying impulse response
 set(0, 'currentfigure', figs.main);
 ax = subplot(231);
-imagesc(xaxis, yaxis, 20*log10(abs(h_hat_first_channel)).', [limit, 0]);
+imagesc(xaxis, yaxis, 20*log10(abs(h_hat_mid)).', [limit, 0]);
 xlabel(xunit), ylabel('Time [s]');
 c = colorbar(ax, "Location", "Northoutside");
 ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
@@ -139,8 +137,8 @@ else
 end
 
 if subplots
-  figs.ir = figure('position', [0, 0, 400, 400]); ax = gca;
-  imagesc(xaxis, yaxis, 20*log10(abs(h_hat_first_channel)).', [limit, 0]);
+  figs.ir = figure('position', [0, 0, 400, 400], fig_opts{:}); ax = gca;
+  imagesc(xaxis, yaxis, 20*log10(abs(h_hat_mid)).', [limit, 0]);
   xlabel(xunit), ylabel('Time [s]');
   c = colorbar(ax, "Location", "Northoutside");
   ps = get(ax, "Position"); ps(4)=ps(4)*0.9; set(ax, "Position", ps);
@@ -158,18 +156,19 @@ end
 % Blackman-Tukey estimator: S(τ,ν) = FFT{ R_h(τ, Δt) }
 set(0, 'currentfigure', figs.main);
 ax = subplot(232);
-N_time = size(h_hat_first_channel, 2);
+N_time = size(h_hat_mid, 2);
 nfft = 2^(nextpow2(2*N_time - 1) + 1);
-doppler_spectrum = zeros(size(h_hat_first_channel, 1), nfft);
-for ii = 1:size(h_hat_first_channel, 1)
-  rr = xcorr(h_hat_first_channel(ii, :));
+doppler_spectrum = zeros(size(h_hat_mid, 1), nfft);
+for ii = 1:size(h_hat_mid, 1)
+  rr = xcorr(h_hat_mid(ii, :));
   doppler_spectrum(ii, :) = abs(fftshift(fft(rr, nfft)));
 end
 delay_doppler = doppler_spectrum / max(doppler_spectrum, [], 'all');
 yaxis_doppler = linspace(-params.fs_time/2, params.fs_time/2 - params.fs_time/nfft, nfft);
+doppler_limit = 10;  % Doppler axis range [Hz]
 imagesc(xaxis, yaxis_doppler, 10*log10(delay_doppler).', [limit, 0]);
 xlabel(xunit); ylabel('Doppler [Hz]');
-ylim([-10, 10])
+ylim([-doppler_limit, doppler_limit])
 c = colorbar(ax, "Location", "Northoutside");
 ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
 if delay_tracking
@@ -179,10 +178,10 @@ else
 end
 
 if subplots
-  figs.doppler = figure('position', [0, 0, 400, 400]); ax = gca;
+  figs.doppler = figure('position', [0, 0, 400, 400], fig_opts{:}); ax = gca;
   imagesc(xaxis, yaxis_doppler, 10*log10(delay_doppler).', [limit, 0]);
   xlabel(xunit); ylabel('Doppler [Hz]');
-  ylim([-2, 2])
+  ylim([-doppler_limit, doppler_limit])
   c = colorbar(ax, "Location", "Northoutside");
   ps = get(ax, "Position"); ps(4)=ps(4)*0.9; set(ax, "Position", ps);
   pc = get(c, "Position"); pc(2)=pc(2)*1.03; pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; set(c, "Position", pc);
@@ -221,8 +220,9 @@ end
 h_hat_bf = zeros(length(delays), nangle, obs);
 for o = 1 : obs
   h_obs = h_hat(:, :, end-obs+o);
-  H_hat = fft(circshift([h_obs; ...
-    zeros(nfft-size(h_obs,1), M)], -K_1*ns));
+  % fftshift puts the bins in the order of fk, from -fs/2 to fs/2
+  H_hat = fftshift(fft(circshift([h_obs; ...
+    zeros(nfft-size(h_obs,1), M)], -K_1*ns)), 1);
   H_hat_bf = squeeze(sum(H_hat .* s_prime, 2));
   h_hat_bf(:, :, o) = exponents * H_hat_bf;
 end
@@ -233,15 +233,15 @@ zaxis = 10 * log10(zaxis);
 if meta.vertical && M >= 13
   set(0, 'currentfigure', figs.main);
   ax = subplot(233);
-  imagesc(delays * 1e3, theta/pi*180, zaxis.', [limit, 0]), colormap(cmap), axis("xy")
+  imagesc(delays * delay_scale, theta/pi*180, zaxis.', [limit, 0]), colormap(cmap), axis("xy")
   xlabel(xunit); ylabel("Angle [degree]")
   c = colorbar(ax, "Location", "Northoutside");
   ps = get(ax, "Position"); pc = get(c, "Position"); pc(3)=pc(3)*0.4; pc(4)=pc(4)*0.8; ps(4)=ps(4)*0.8; set(c, "Position", pc); set(ax, "Position", ps); title(c, "dB"); lb = get(c, "Title"); set(lb, "Units", "Normalized", "Position", [1.15, 0]);
   % text(ax, 0.55, 1.09, 0.0, "$10 \log_{10} \left( \hat{P}(\tau, \theta) \right)$", "Interpreter", "latex", "Units", "Normalized")
 
   if subplots
-    figs.delay_angle = figure('position', [0, 0, 400, 400]); ax = gca;
-    imagesc(delays * 1e3, theta/pi*180, zaxis.', [limit, 0]), colormap(cmap), axis("xy");
+    figs.delay_angle = figure('position', [0, 0, 400, 400], fig_opts{:}); ax = gca;
+    imagesc(delays * delay_scale, theta/pi*180, zaxis.', [limit, 0]), colormap(cmap), axis("xy");
     xlabel(xunit); ylabel("Angle [degree]")
     c = colorbar(ax, "Location", "Northoutside");
     ps = get(ax, "Position"); ps(4)=ps(4)*0.9; set(ax, "Position", ps);
@@ -274,7 +274,7 @@ xlim([min(xaxis), max(xaxis)]);
 xlabel(xunit); ylabel('Multipath intensity profile [dB]');
 
 if subplots
-  figs.mip = figure('position', [0, 0, 400, 400]); ax = gca;
+  figs.mip = figure('position', [0, 0, 400, 400], fig_opts{:}); ax = gca;
   hold on; box("on"); grid("on");
   for m = 1:M
     plot(ax, xaxis, 10*log10(abs(mip(:, m))), 'Color', linecolors(m, :));
@@ -294,7 +294,7 @@ xlabel('Time [s]'); ylabel('Phase [rad]');
 xlim([min(xaxis_phase), max(xaxis_phase)]);
 
 if subplots
-  figs.pll = figure('position', [0, 0, 400, 400]); ax = gca; hold on;
+  figs.pll = figure('position', [0, 0, 400, 400], fig_opts{:}); ax = gca; hold on;
   box("on"); axis("square"); grid("on");
   for m = 1:M
     plot(ax, xaxis_phase, phase(m, :), "Color", linecolors(m, :));
@@ -331,10 +331,10 @@ else
 end
 
 if delay_tracking
-  time_str = sprintf('$K_1 = %d$, $K_2 = %d$, $T_s = T/%d$, $T_c = T/%d$, $T_r = T/%s$', ...
+  time_str = sprintf('$K_1 = %d$, $K_2 = %d$, $T_s = T/%d$, $T_c = %dT$, $T_r = T/%s$', ...
     K_1, K_2, meta.nsd, round(1/meta.nst), ltxnum(meta.nsd * meta.nslr));
 else
-  time_str = sprintf('$K_1 = %d$, $K_2 = %d$, $T_s = T/%d$, $T_c = T/%d$', ...
+  time_str = sprintf('$K_1 = %d$, $K_2 = %d$, $T_s = T/%d$, $T_c = %dT$', ...
     K_1, K_2, meta.nsd, round(1/meta.nst));
 end
 
