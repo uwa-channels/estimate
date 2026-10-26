@@ -54,14 +54,14 @@ function [h_hat_store, theta_hat_store, error] = est(data, params)
 %                          including the convergence period.
 %
 % Example:
-%    See main.m.
+%    See examples/example_estimate.m.
 %
 % Other m-files required: None.
 % Subfunctions: update_lms, update_rls, validate_inputs
 % Toolbox required: Signal Processing Toolbox (for resample, xcorr, findpeaks).
 % MAT-files required: None.
 %
-% See also: plots.m, main.m
+% See also: plots.m, example_estimate.m
 %
 % Author: Zhengnan Li, Claude (Opus 5.5)
 % Email : uacr@ofdm.link
@@ -70,6 +70,7 @@ function [h_hat_store, theta_hat_store, error] = est(data, params)
 %
 % Revision history:
 %   - Oct. 26, 2026: Documented the inputs and outputs.
+%   - Oct. 26, 2026: Removed the unimplemented optimizer 4.
 %
 
 %% Check inputs
@@ -313,10 +314,6 @@ elseif params.optim == 3
   assert(all(isfield(params, {'lambda', 'regularization', 'conversion'})), ...
     'Optimizer 3 does not have all required parameters.');
   convergence_period = 2 * (params.K_1 + params.K_2) * params.nsd;
-elseif params.optim == 4
-  assert(all(isfield(params, {'lambda_ch'})), ...
-    'Optimizer 4 does not have all required parameters.');
-  convergence_period = 20 * (params.K_1 + params.K_2) * params.nsd;
 else
   error('Invalid optimizer option.');
 end
@@ -366,9 +363,6 @@ elseif params.optim == 3
     '', 'params.lambda (SFTF regularization factor)');
   validateattributes(params.conversion, 'numeric', {'scalar', 'positive', 'finite'}, ...
     '', 'params.lambda (SFTF conversion factor)');
-elseif params.optim == 4
-  validateattributes(params.lambda_ch, 'numeric', {'scalar', 'positive', 'finite'}, ...
-    '', 'params.lambda_ch (Alternative forgetting factor)');
 else
   error('Invalid params.optim.')
 end

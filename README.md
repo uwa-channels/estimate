@@ -8,14 +8,28 @@ Please report bugs and suggest enhancements by [creating a new issue](https://gi
 
 ## Quick start
 
-Run `main.m` in MATLAB or Octave.  The script generates a BPSK signal, passes it through a synthetic multipath channel with Doppler, estimates the time-varying impulse response, and plots the results.
+Clone the repository, and then, from its root folder in MATLAB or Octave, run:
+
+```matlab
+install
+example_estimate
+```
+
+`install` adds `src` and `examples` to the search path and saves the path, so you only need to run it once.  `example_estimate` generates a BPSK signal, passes it through a synthetic multipath channel with Doppler, estimates the time-varying impulse response, saves it in the library format, and plots the results.
+
+## Layout
+
+| Folder | Contents |
+|--------|----------|
+| `src/` | The functions: `est.m` and `plots.m`. |
+| `examples/` | `example_estimate.m`, the end-to-end example. |
 
 ## Functions
 
 | Function | Description |
 |----------|-------------|
-| `est.m` | Adaptive channel estimation with LMS, RLS, or SFTF, and optional delay tracking via a second-order PLL. |
-| `plots.m` | Visualization of the estimated channel: time-varying IR, Doppler-delay scattering function, delay-angle (broadband beamforming), multipath intensity profile, PLL phase, and estimation parameters. |
+| `src/est.m` | Adaptive channel estimation with LMS, RLS, or SFTF, and optional delay tracking via a second-order PLL. |
+| `src/plots.m` | Visualization of the estimated channel: time-varying IR, Doppler-delay scattering function, delay-angle (broadband beamforming), multipath intensity profile, PLL phase, and estimation parameters. |
 
 ## Output format
 

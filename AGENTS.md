@@ -5,27 +5,29 @@ the scripts do and for the output format.
 
 ## Layout
 
-- `est.m` estimates the channel.  Its help block documents every field of
+- `src/est.m` estimates the channel.  Its help block documents every field of
   `data` and `params`.
-- `plots.m` plots an estimated or a saved channel.
-- `main.m` is the end-to-end example: it makes a synthetic channel, estimates
-  it, saves it in the library format, and plots it.
+- `src/plots.m` plots an estimated or a saved channel.
+- `examples/example_estimate.m` is the end-to-end example: it makes a
+  synthetic channel, estimates it, saves it in the library format, and plots
+  it.
+- `install.m` adds `src/` and `examples/` to the search path and saves it.
 
 ## Running it
 
 ```bash
-matlab -batch main
-octave --eval "pkg load signal statistics; main"
+matlab -batch "addpath('src', 'examples'); example_estimate"
+octave --eval "pkg load signal statistics; addpath('src', 'examples'); example_estimate"
 ```
 
-There is no test suite.  Run `main.m` after a change, and check that the
+There is no test suite.  Run `example_estimate.m` after a change, and check that the
 estimated impulse response and PLL phase in the plots look right.  It needs the
 Signal Processing Toolbox in MATLAB (R2021a or later), or the `signal` and
 `statistics` packages in Octave 9.
 
 ## File format
 
-`main.m` saves channels in the format that `uwa-channels/matlab` and
+`example_estimate.m` saves channels in the format that `uwa-channels/matlab` and
 `uwa-channels/python` read.  The specification is in `CONTRIBUTING.md` of
 those repositories.  When `params.delay_tracking` is true, save the phase
 output of `est` as `phi_hat`; otherwise save it as `theta_hat`.  Do not change
