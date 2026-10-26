@@ -1,11 +1,75 @@
 function [h_hat_store, theta_hat_store, error] = est(data, params)
-%EST Estimate channel.
-%   Detailed explanation TBD.
+% EST Estimate a time-varying underwater acoustic channel.
 %
-% Author: Zhengnan Li
+% [H_HAT, THETA_HAT] = EST(DATA, PARAMS) estimates the time-varying impulse
+% response H_HAT of a single-carrier recording, one adaptive filter per
+% receiver, together with the phase THETA_HAT tracked by a second-order PLL.
+% The known symbols DATA.d are transmitted N times back to back.  EST
+% downshifts DATA.r to baseband, aligns it on the first correlation peak of
+% the first PARAMS.sync_length symbols, resamples it, and runs the adaptive
+% filter over the N repetitions.
+%
+% [H_HAT, THETA_HAT, ERROR] = EST(DATA, PARAMS) also returns the a priori
+% estimation error.
+%
+% Inputs:
+%    data                - Struct with the recording and the known symbols:
+%      .Fs               - Sampling rate of data.r [Hz].
+%      .R                - Symbol rate [Baud].
+%      .fc               - Center frequency [Hz].
+%      .d                - Known data symbols (num_symbols-by-1).
+%      .r                - Received passband signal (num_samples-by-M).
+%    params              - Struct with the estimator settings:
+%      .nsd              - Samples per symbol in the delay domain.
+%      .nst              - Samples per symbol in the time domain, i.e. how
+%                          often H_HAT is stored (e.g. 1/100).
+%      .M                - Number of receivers; must equal size(data.r, 2).
+%      .N                - Number of repetitions of data.d to process.
+%      .K_1              - Anti-causal filter length [symbols].
+%      .K_2              - Causal filter length [symbols].
+%      .delta            - Synchronization fine adjustment [samples of Fs].
+%      .sync_length      - Number of leading symbols used to synchronize.
+%      .delay_tracking   - true to track the delay drift as well as the phase.
+%      .nslr             - Interpolation oversampling, Tr = Ts / nslr
+%                          (used when delay_tracking is true).
+%      .optim            - Adaptive algorithm: 1 LMS, 2 RLS, 3 SFTF.
+%      .mu               - LMS step size (optim 1).
+%      .lambda           - Forgetting factor (optim 2 and 3).
+%      .regularization   - Initial regularization (optim 2 and 3).
+%      .conversion       - Initial conversion factor (optim 3).
+%      .Kf_1, .Kf_2      - Proportional and integral PLL gains.
+%
+% Outputs:
+%    h_hat_store         - Complex baseband impulse responses
+%                          ((K_1+K_2)*nsd-by-M-by-num_snapshots).  The delay
+%                          axis is sampled at R*nsd and the time axis at
+%                          R*nst.  The initial convergence period (20*K
+%                          symbols for LMS, 2*K for RLS and SFTF, with
+%                          K = K_1+K_2) is discarded.
+%    theta_hat_store     - Tracked phase [rad] (M-by-num_samples), sampled at
+%                          R*nsd and spanning the same time as h_hat_store.
+%                          Save it as phi_hat when delay_tracking is true, and
+%                          as theta_hat otherwise.
+%    error               - A priori estimation error (num_samples-by-M),
+%                          including the convergence period.
+%
+% Example:
+%    See main.m.
+%
+% Other m-files required: None.
+% Subfunctions: update_lms, update_rls, validate_inputs
+% Toolbox required: Signal Processing Toolbox (for resample, xcorr, findpeaks).
+% MAT-files required: None.
+%
+% See also: plots.m, main.m
+%
+% Author: Zhengnan Li, Claude (Opus 5.5)
 % Email : uacr@ofdm.link
 %
 % License: MIT
+%
+% Revision history:
+%   - Oct. 26, 2026: Documented the inputs and outputs.
 %
 
 %% Check inputs
