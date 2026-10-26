@@ -15,6 +15,7 @@
 %   - Jun.  1, 2025: Initial release.
 %   - Mar.  9, 2026: Updated to use params/meta struct.
 %   - Oct. 26, 2026: Renamed from main.m and moved to examples/.
+%   - Oct. 26, 2026: Added arrival angles on a 16-element vertical array.
 %
 
 %% Clean
@@ -27,12 +28,15 @@ Fs = 48e3;            % Sampling rate
 fc = 10e3;            % Center frequency
 R = 8e3;              % Symbol rate
 Ns = Fs / R;          % Samples per symbol
-M = 4;                % Number of receivers
+M = 16;               % Number of receivers
+element_spacing = 0.075;  % Vertical element spacing [m]
+c = 1500;             % Sound speed [m/s]
 
 a = -1 / 1500;        % a = v / c
 Tmp = 10e-3;          % Multipath spread
 path_delay = [0, randsample(1:Tmp*1e3-1, 8)] / 1e3;
 path_gain = exp(-path_delay*1.5./Tmp) .* randsample([-1, 1], length(path_delay), true);
+path_angle = randsample(-30:30, length(path_delay), true);  % Arrival angles [degree]
 
 %% Prepare signal for channel estimation
 d_channel = randsample([-1, +1], 2^17-1, true).';
@@ -41,18 +45,20 @@ s_all_channel = real(u_all_channel.*exp(1j*2*pi*fc*(0:length(u_all_channel) - 1)
 s_all_channel = [zeros(round(Fs/16), 1); s_all_channel; zeros(round(Fs/16), 1);];
 
 %% Create multipath signal
+% Element m receives each path (m-1)*element_spacing*sin(angle)/c later.  The
+% delays are fractions of a sample, so they are applied in the frequency domain.
+S_all_channel = fft(s_all_channel);
+f = (0:length(s_all_channel)-1).' / length(s_all_channel) * Fs;
 received_channel = zeros(length(s_all_channel), M);
 for m = 1:M
-  for p = 1:length(path_gain)
-    received_channel(:, m) = received_channel(:, m) + path_gain(p) * ...
-      circshift(s_all_channel, round(path_delay(p)*Fs));
-  end
+  tau = path_delay + (m-1) * element_spacing * sind(path_angle) / c;
+  received_channel(:, m) = ifft(S_all_channel .* (exp(-2j*pi*f*tau) * path_gain.'), 'symmetric');
 end
 
 [p, q] = rat(1-a);
 received_channel = resample(received_channel, p, q, "Dimension", 1);
 received_channel = received_channel ./ (sqrt(pwr(received_channel)));
-received_channel = received_channel + 0.1 * randn(size(received_channel));
+received_channel = received_channel + 1 * randn(size(received_channel));
 
 %% Estimation input
 data.Fs = Fs;
@@ -61,7 +67,7 @@ data.fc = fc;
 data.d = d_channel;
 data.u = u_all_channel;
 data.r = received_channel;
-data.element_spacing = 0.075;
+data.element_spacing = element_spacing;
 data.vertical = true;
 
 %% Channel estimation parameters
@@ -96,7 +102,7 @@ else
   error("Wrong optimizer option.");
 end
 
-param.Kf_1 = 0.001;
+param.Kf_1 = 0.01;
 param.Kf_2 = param.Kf_1 / 10;
 param.delay_tracking = true;
 
@@ -186,7 +192,7 @@ if param.delay_tracking
 else
   phase = theta_hat;
 end
-figs = plots(h_hat, phase, params, meta, true);
+figs = plots(h_hat, phase, params, meta, false);
 
 % Export
 names = fieldnames(figs);
