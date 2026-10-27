@@ -43,8 +43,20 @@ jobs:
       # round-trip waveforms.  Download it from the run's Artifacts and open
       # index.html.  It is uploaded when a test fails too.
       - name: Upload the test report
+        id: report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report-${{ matrix.release }}
           path: test-results
+      # A job summary cannot show the figures themselves, since artifacts are
+      # not public URLs, so it links to the report instead.
+      - name: Link the test report from the job summary
+        if: always() && steps.report.outputs.artifact-url != ''
+        run: |
+          {
+            echo "### Test report, ${{ matrix.release }}"
+            echo ""
+            echo "[Download the HTML test report](${{ steps.report.outputs.artifact-url }}),"
+            echo "with the round-trip waveform figures; unzip it and open \`index.html\`."
+          } >> "$GITHUB_STEP_SUMMARY"
