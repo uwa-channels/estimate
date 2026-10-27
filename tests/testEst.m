@@ -16,7 +16,8 @@ classdef testEst < matlab.unittest.TestCase
   %                        file format.
   %   testReplayRoundTrip: a channel estimated here and replayed with
   %                        uwa-channels/matlab reproduces the true channel's
-  %                        output, and does not with the sign of phi_hat
+  %                        output, early in the record and as late as it
+  %                        allows, and does not with the sign of phi_hat
   %                        flipped.  Skipped when replay is not on the path.
   %   testRejectsInvalidInputs, testPlots.
   %
@@ -29,8 +30,9 @@ classdef testEst < matlab.unittest.TestCase
   %
   % Other m-files required: est.m, plots.m; replay.m from uwa-channels/matlab
   %                         for testReplayRoundTrip.
-  % Subfunctions: simulate, passband, default_params, expected_response,
-  %               fit_response, peak_tap, compare, lowpass_bb, pwr
+  % Subfunctions: simulate, passband, symbol_train, default_params,
+  %               expected_response, fit_response, peak_tap, compare,
+  %               fit_error, plot_round_trip, lowpass_bb, pwr
   % Toolbox required: Signal Processing Toolbox.
   % MAT-files required: None.
   %
@@ -43,6 +45,12 @@ classdef testEst < matlab.unittest.TestCase
   %
   % Revision history:
   %   - Oct. 26, 2026: Initial release.
+  %   - Oct. 27, 2026: testReplayRoundTrip also replays at the latest start
+  %                     the record allows, where phi_hat has accumulated the
+  %                     most drift.  It replays the symbol train rather than
+  %                     the pulse-shaped probe, since h_hat holds the pulse;
+  %                     compare aligns continuously; the thresholds follow;
+  %                     and the round trip is logged as a figure.
 
   properties (Constant)
     Fs = 48e3;                          % Passband sampling rate [Hz]
@@ -193,24 +201,55 @@ classdef testEst < matlab.unittest.TestCase
       channel.version = 1.0;
 
       % A fresh probe, through the estimated channel and the true one.
+      % h_hat maps symbols to the received signal, so it already holds the
+      % transmit pulse: replay the symbols themselves, as a zero-stuffed
+      % train at fs_delay carried to Fs and up to fc.  Replaying the
+      % pulse-shaped probe would apply the pulse twice.
       probe = randi([0, 1], 2^13-1, 1) * 2 - 1;
-      replayed = replay(passband(testCase, probe), testCase.Fs, 1:M, channel, 2000);
+      x = symbol_train(testCase, probe, params.nsd);
       truth = simulate(testCase, M, doppler, probe);
       truth = truth.r;
 
-      % replay of the exact channel reaches about -22 dB here, so the
-      % threshold sits a few dB above that.
-      for m = 1:M
-        nmse = compare(testCase, truth(:, m), replayed(:, m), probe);
-        testCase.verifyLessThan(nmse, -15, ...
-          sprintf('Element %d: replayed output is %.1f dB from the truth.', m, nmse));
+      % Replay early in the record and as late as it allows.  phi_hat
+      % accumulates, so late in the record its absolute value is about 144
+      % samples at Fs here; replay must take the drift from its starting
+      % sample, or the output is shifted by all of it and loses its end
+      % (receding) or its beginning (closing).
+      fs_delay = channel.params.fs_delay;
+      T_max = size(h_hat, 3) / channel.params.fs_time * fs_delay;
+      T = ceil(numel(x) * fs_delay / testCase.Fs);
+      late = floor(T_max - T - size(h_hat, 1));
+
+      % The estimate's own noise puts the static case at about -47 dB.
+      % With Doppler, est's linear interpolation in delay tracking costs
+      % about 12 dB more (replaying the exact channel reaches -54 dB in
+      % both).  Each threshold sits a few dB above what correct code
+      % measures.
+      if doppler == 0
+        limit = -40;
+      else
+        limit = -30;
+      end
+      for start = [2000, late]
+        replayed = replay(x, testCase.Fs, 1:M, channel, start);
+        for m = 1:M
+          [nmse, A, B] = compare(testCase, truth(:, m), replayed(:, m), probe);
+          testCase.verifyLessThan(nmse, limit, sprintf(['Element %d, start ', ...
+            '%d: replayed output is %.1f dB from the truth.'], m, start, nmse));
+          if m == 1 && start == 2000
+            testCase.log(1, matlab.unittest.diagnostics.FigureDiagnostic( ...
+              plot_round_trip(testCase, A, B, doppler, nmse), 'Formats', 'png'));
+          end
+        end
       end
 
       % Control: with the phase convention reversed, the comparison has to
       % fail, or it would not notice a sign error in est.
       if doppler ~= 0
         channel.phi_hat = -phi_hat;
-        flipped = replay(passband(testCase, probe), testCase.Fs, 1, channel, 2000);
+        flipped = replay(x, testCase.Fs, 1, channel, 2000);
+        % Aligned as finely as compare now does, the negated phase still
+        % leaves the replay far from the truth.
         nmse = compare(testCase, truth(:, 1), flipped, probe);
         testCase.verifyGreaterThan(nmse, -5, ...
           sprintf('With phi_hat negated, the replay is still %.1f dB from the truth.', nmse));
@@ -320,6 +359,16 @@ s = real(u .* exp(2j*pi*testCase.fc*(0:length(u)-1).' / testCase.Fs));
 end
 
 
+function s = symbol_train(testCase, symbols, nsd)
+% The symbols as est sees them, a zero-stuffed train at fs_delay = nsd*R,
+% carried to Fs and up to fc, so that replay applies h_hat to them once.
+x = zeros(numel(symbols) * nsd, 1);
+x(1:nsd:end) = symbols;
+u = resample(x, testCase.Fs / (testCase.R * nsd), 1);
+s = real(u .* exp(2j*pi*testCase.fc*(0:length(u)-1).' / testCase.Fs));
+end
+
+
 function params = default_params(M, N)
 params.nsd = 2;
 params.nst = 2;
@@ -403,9 +452,10 @@ tap = sum(w(:) .* power(w(:))) / sum(power(w));
 end
 
 
-function nmse = compare(testCase, truth, replayed, probe)
+function [nmse, A, B] = compare(testCase, truth, replayed, probe)
 % Align the replayed output to the truth on the probe's correlation peak,
 % then measure the error at baseband, after the best complex gain, in dB.
+% A and B are the aligned truth and replay at 4R, B scaled by that gain.
 Fs = testCase.Fs;
 template = resample(probe(1:64), Fs / testCase.R, 1);
 v_truth = truth .* exp(-2j*pi*testCase.fc*(0:numel(truth)-1).' / Fs);
@@ -421,17 +471,47 @@ n = 3 * 2^14;
 A = lowpass_bb(v_truth(start_truth + (0:n-1)), testCase);
 B = lowpass_bb(v_replay(start_replay + (0:n-1)), testCase);
 
-% The two starts can differ by a fraction of a sample; search a few
-% fractional shifts and keep the best.
-best = inf;
+% The two starts can differ by a fraction of a sample.  Under Doppler a
+% search in eighths of a sample leaves up to 1.3 us of timing error, which
+% alone reads about -35 dB, so refine the best eighth continuously.
 k = (0:numel(B)-1).';
-for shift = -1:0.125:1
-  Bs = interp1(k, B, k + shift, 'spline', 0);
-  g = (Bs' * A) / (Bs' * Bs);
-  e = sum(abs(A(100:end-100) - g * Bs(100:end-100)).^2) / sum(abs(A(100:end-100)).^2);
-  best = min(best, e);
+err = @(shift) fit_error(A, interp1(k, B, k + shift, 'spline', 0));
+coarse = -1:0.125:1;
+[~, i] = min(arrayfun(err, coarse));
+shift = fminbnd(err, coarse(max(i-1, 1)), coarse(min(i+1, numel(coarse))), ...
+  optimset('TolX', 1e-6));
+[e, B] = err(shift);
+nmse = 10*log10(e);
 end
-nmse = 10*log10(best);
+
+
+function [e, gB] = fit_error(A, B)
+g = (B' * A) / (B' * B);
+gB = g * B;
+e = sum(abs(A(100:end-100) - gB(100:end-100)).^2) / sum(abs(A(100:end-100)).^2);
+end
+
+
+function fig = plot_round_trip(testCase, A, B, doppler, nmse)
+% The truth and the replay at baseband over a few milliseconds, and the
+% error along the whole comparison.
+fs = 4 * testCase.R;
+t = (0:numel(A)-1).' / fs * 1e3;
+fig = figure;
+subplot(2, 1, 1);
+w = t >= 100 & t < 103;
+plot(t(w), real(A(w)), 'LineWidth', 1.2), hold on
+plot(t(w), real(B(w)), '--', 'LineWidth', 1.2)
+xlabel('Time [ms]'), ylabel('Re\{v\}')
+legend('Truth', 'Replay of the estimate', 'Location', 'best')
+title(sprintf('Round trip, Doppler %+.0e: NMSE %.1f dB', doppler, nmse))
+grid on
+subplot(2, 1, 2);
+e = abs(A - B).^2 / mean(abs(A).^2);
+plot(t, 10*log10(movmean(e, 256)))
+xlabel('Time [ms]'), ylabel('Error [dB]')
+title('Squared error relative to the mean signal power, moving average')
+grid on
 end
 
 
