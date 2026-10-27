@@ -38,3 +38,13 @@ jobs:
         with:
           source-folder: src; uwa-matlab/src
           select-by-folder: tests
+          test-results-html: test-results
+      # The HTML report embeds the figures the tests log, such as the
+      # round-trip waveforms.  Download it from the run's Artifacts and open
+      # index.html.  It is uploaded when a test fails too.
+      - name: Upload the test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.release }}
+          path: test-results
